@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dassoler Agronegócios | Controle Operacional</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js para gráficos modernos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts: DM Sans & Fraunces -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Fraunces:opsz,wght@9..144,400..700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forest: { DEFAULT: '#0f4a32', dark: '#08291c', light: '#1d6a43', soft: '#e8f3ec' },
+            gold: { DEFAULT: '#c4a35a', light: '#e8d7a8', soft: '#fbf7ee' },
+            leaf: '#6fbf4b'
+          },
+          fontFamily: {
+            sans: ['"DM Sans"', 'sans-serif'],
+            serif: ['"Fraunces"', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background-color: #f4f7f5; color: #1c2b25; }
+    h1, h2, h3, .font-display { font-family: 'Fraunces', serif; }
+    .print-only { display: none !important; }
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .receipt-container { box-shadow: none !important; border: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <div id="app"></div>
+
+  <!-- Script da Aplicação Completa -->
+  <script>
+    // --- IDENTIDADE VISUAL (LOGO DASSOLER EM SVG PURO) ---
+    const LOGO_SVG = `
+      <svg viewBox="0 0 480 180" class="h-10 w-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="480" height="180" rx="20" fill="white"/>
+        <g transform="translate(260 12)">
+          <path d="M18 48C-2 35-7 10 8 0C30 11 36 32 18 48Z" fill="#0B9548"/>
+          <path d="M22 58C21 25 43 8 70 13C73 43 53 61 22 58Z" fill="#FFB12B"/>
+          <path d="M18 108C-12 91-19 57 1 40C34 58 47 89 18 108Z" fill="#59B947"/>
+          <path d="M18 63L18 110" stroke="#766A58" stroke-width="8" stroke-linecap="round"/>
+        </g>
+        <text x="38" y="126" fill="#665B4C" font-family="Georgia, serif" font-size="83" letter-spacing="-4">Dassoler</text>
+        <text x="283" y="151" fill="#665B4C" font-family="Arial, sans-serif" font-size="20">Agronegócios</text>
+      </svg>
+    `;
+
+    // --- GRÃOS E VARIEDADES EXATAS PEDIDAS ---
+    const GRAINS_DATA = {
+      "Soja": {
+        tolerances: { umidade: 14, impureza: 1, avariados: 8 },
+        varieties: ["75174", "CZ48B18", "CZ37B39", "TORMENTA", "MONSSOY 73I75", "74177 FOCO", "7921 DAGMA", "67168 GEPARDO", "OLIMPO", "SPARTA", "97497", "BASF 48B32", "BONUS", "GUAPO", "NEO790", "MONSSOY 8220", "DM68I69", "3707 RR", "RESIDUO DE SOJA"]
+      },
+      "Milho": {
+        tolerances: { umidade: 14, impureza: 1, avariados: 6 },
+        varieties: ["AG 8088 PRO2", "DKB 390", "P30F53", "Híbrido safrinha", "Convencional", "RESIDUO DE MILHO"]
+      },
+      "Gergelim": {
+        tolerances: { umidade: 6, impureza: 1, avariados: 8, ffa: 2, imaturos: 2 },
+        varieties: ["GERGELIM BRANCO", "PRETO", "VITORIA", "K3", "IMA ARAGUAIA", "SEDA", "RESIDUO DE GERGELIM"]
+      },
+      "Feijão": {
+        tolerances: { umidade: 14, impureza: 1, avariados: 4 },
+        varieties: ["CAUPI TUMUCUMAQUE", "CARIOCA", "FEIJAO CAUPI NOVA ERA", "CAUPI BICO DE OURO", "CAUPI PINGO DE OURO", "FEIJAO PRETO", "JALO", "RAJADO", "ADZUKI", "RED BAMBOO", "RED BEAN", "CAUPI", "CAUPI FRADINHO", "SEMENTE", "MUNGO PRETO", "MUNGO VERDE", "RESIDUO DE FEIJÃO"]
+      },
+      "Crotalária": {
+        tolerances: { umidade: 12, impureza: 2, avariados: 5 },
+        varieties: ["JUNCEA", "SPECTABILIS", "OCHROLEUCA", "BREVIFLORA", "PAULINA", "RESIDUO DE CROTALÁRIA"]
+      },
+      "Sorgo Forrageiro": {
+        tolerances: { umidade: 14, impureza: 2, avariados: 8 },
+        varieties: ["BRS 655", "AGRI 002E", "NUTRITOP", "SANTA ELZA", "IPA 467", "RESIDUO DE SORGO FORRAGEIRO"]
+      },
+      "DDG": {
+        tolerances: { umidade: 12, impureza: 3, avariados: 5 },
+        varieties: ["DDG SECO", "DDG UMIDO", "DDG PELETIZADO", "DDG FARELO", "DDG ALTA PROTEINA", "RESIDUO DE DDG"]
+      },
+      "Trigo": {
+        tolerances: { umidade: 13, impureza: 1, avariados: 1 },
+        varieties: ["BRS 264", "TBIO Toruk", "Quartzo", "RESIDUO DE TRIGO"]
+      },
+      "Sorgo": {
+        tolerances: { umidade: 14, impureza: 1, avariados: 6 },
+        varieties: ["Granífero", "Forrageiro", "RESIDUO DE SORGO"]
+      },
+      "Arroz": {
+        tolerances: { umidade: 13, impureza: 2, avariados: 10 },
+        varieties: ["IRGA 424", "BRS Pampeira", "RESIDUO DE ARROZ"]
+      },
+      "Girassol": {
+        tolerances: { umidade: 11, impureza: 2, avariados: 8 },
+        varieties: ["Alto oleico", "Convencional", "RESIDUO DE GIRASSOL"]
+      },
+      "Canola": {
+        tolerances: { umidade: 10, impureza: 2, avariados: 5 },
+        varieties: ["Hyola", "RESIDUO DE CANOLA"]
+      },
+      "Aveia": {
+        tolerances: { umidade: 13, impureza: 2, avariados: 5 },
+        varieties: ["Branca", "Preta", "RESIDUO DE AVEIA"]
+      },
+      "Cevada": {
+        tolerances: { umidade: 13, impureza: 2, avariados: 5 },
+        varieties: ["Cervejeira", "RESIDUO DE CEVADA"]
+      }
+    };
+
+    const SACA_SIZES = Array.from({ length: 100 }, (_, i) => i + 1);
+    const BAG_SIZES = [250, 400, 500, 600, 750, 800, 900, 1000, 1100, 1200, 1250, 1500, 1800, 2000];
+
+    // --- BANCO LOCAL (LOCALSTORAGE) ---
+    const DB = {
+      get(key, def) {
+        try {
+          const val = localStorage.getItem('dassoler_' + key);
+          return val ? JSON.parse(val) : def;
+        } catch(e) { return def; }
+      },
+      set(key, val) {
+        try { localStorage.setItem('dassoler_' + key, JSON.stringify(val)); } catch(e) {}
+      }
+    };
+
+    // Estado Inicial / Seed
+    let state = {
+      authenticated: DB.get('auth', false),
+      activeTab: 'visao-geral',
+      receipts: DB.get('receipts', []),
+      loads: DB.get('loads', []),
+      oneoffs: DB.get('oneoffs', []),
+      diesel: DB.get('diesel', []),
+      dieselConfig: DB.get('dieselConfig', { s500Cap: 15000, s10Cap: 15000 }),
+      packaging: DB.get('packaging', []),
+      meals: DB.get('meals', []),
+      producers: DB.get('producers', []),
+      currentModal: null,
+      editingItem: null,
+      reportFilter: { producer: '', grain: '', unit: '', section: 'graos' },
+      searchQuery: ''
+    };
+
+    function saveState() {
+      DB.set('receipts', state.receipts);
+      DB.set('loads', state.loads);
+      DB.set('oneoffs', state.oneoffs);
+      DB.set('diesel', state.diesel);
+      DB.set('dieselConfig', state.dieselConfig);
+      DB.set('packaging', state.packaging);
+      DB.set('meals', state.meals);
+      DB.set('producers', state.producers);
+    }
+
+    // --- CÁLCULOS MATEMÁTICOS COM PRECISÃO ---
+    function calcDiscounts(grainKey, netWeight, moisture = 0, impurity = 0, damaged = 0, manualOverride = null) {
+      if (!grainKey || !GRAINS_DATA[grainKey] || !netWeight || netWeight <= 0) {
+        return { totalDiscount: 0, classifiedNet: netWeight, details: [] };
+      }
+      if (manualOverride && Number.isFinite(manualOverride)) {
+        return { totalDiscount: manualOverride, classifiedNet: Math.max(0, netWeight - manualOverride), details: [] };
+      }
+
+      const tol = GRAINS_DATA[grainKey].tolerances;
+      let remaining = netWeight;
+      let dImp = 0, dUmid = 0, dDam = 0;
+
+      // 1) Impureza
+      if (impurity > tol.impureza) {
+        const excess = impurity - tol.impureza;
+        const div = 100 - tol.impureza;
+        dImp = remaining * (excess / div);
+        remaining = Math.max(0, remaining - dImp);
+      }
+      // 2) Umidade
+      if (moisture > tol.umidade) {
+        const excess = moisture - tol.umidade;
+        const div = 100 - tol.umidade;
+        dUmid = remaining * (excess / div);
+        remaining = Math.max(0, remaining - dUmid);
+      }
+      // 3) Avariados
+      if (damaged > tol.avariados) {
+        const excess = damaged - tol.avariados;
+        dDam = remaining * (excess / 100);
+        remaining = Math.max(0, remaining - dDam);
+      }
+
+      const total = Math.round((dImp + dUmid + dDam) * 100) / 100;
+      return {
+        totalDiscount: total,
+        classifiedNet: Math.round(remaining * 100) / 100,
+        impurityKg: Math.round(dImp * 100) / 100,
+        moistureKg: Math.round(dUmid * 100) / 100,
+        damagedKg: Math.round(dDam * 100) / 100
+      };
+    }
+
+    function calcAutoPackaging(netWeight, unit, capKg) {
+      if (!unit || !netWeight || netWeight <= 0 || !capKg || capKg <= 0) return 0;
+      return Math.ceil(netWeight / capKg);
+    }
+
+    function generateRomaneio(prefix, list) {
+      const nextNum = list.length + 1;
+      return `${prefix}-${String(nextNum).padStart(6, '0')}`;
+    }
+
+    function fmtKg(n) {
+      return (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg';
+    }
+    function fmtTons(n) {
+      return ((Number(n) || 0) / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' t';
+    }
+    function fmtLiters(n) {
+      return (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' L';
+    }
+
+    // --- RENDERIZAÇÃO DA TELA DE LOGIN ---
+    function renderLogin() {
+      return `
+        <div class="min-h-screen flex flex-col md:flex-row bg-white">
+          <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-forest-dark via-forest to-forest-light p-12 text-white flex-col justify-between relative overflow-hidden">
+            <div class="absolute -right-20 -bottom-20 w-96 h-96 rounded-full bg-gold/20 blur-3xl"></div>
+            <div>
+              <div class="inline-block p-3 bg-white rounded-2xl shadow-xl mb-8">
+                ${LOGO_SVG}
+              </div>
+              <p class="text-xs uppercase tracking-widest text-gold-light font-bold mb-2">Gestão que move o campo</p>
+              <h1 class="text-4xl lg:text-5xl font-display font-normal leading-tight">O controle do seu armazém com a máxima precisão.</h1>
+            </div>
+            <p class="text-sm text-forest-soft/80">Originação, classificação MT, carregamento de exportação, diesel, embalagens e marmitas.</p>
+          </div>
+          <div class="flex-1 flex items-center justify-center p-8 bg-slate-50">
+            <div class="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
+              <div class="md:hidden flex justify-center mb-6">
+                ${LOGO_SVG}
+              </div>
+              <p class="text-xs font-bold text-forest uppercase tracking-wider mb-1">Acesso Restrito</p>
+              <h2 class="text-2xl font-display font-normal text-slate-900 mb-6">Bem-vindo de volta</h2>
+              <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Usuário</label>
+                  <input type="text" id="login-user" value="DASSOLER" class="w-full h-11 px-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-forest uppercase font-medium" required>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Senha</label>
+                  <input type="password" id="login-pass" value="Dassoler@123." class="w-full h-11 px-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-forest" required>
+                </div>
+                <div id="login-err" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200"></div>
+                <button type="submit" class="w-full h-12 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                  Entrar no sistema &rarr;
+                </button>
+                <p class="text-center text-[11px] text-slate-500 pt-2">&bull; Usuário exclusivo autorizado: DASSOLER</p>
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('login-user').value.trim().toUpperCase();
+      const p = document.getElementById('login-pass').value.trim();
+      if ((u === 'DASSOLER' || u === 'dassoler') && (p === 'Dassoler@123.' || p === 'Dassoler@123')) {
+        state.authenticated = true;
+        DB.set('auth', true);
+        render();
+      } else {
+        const err = document.getElementById('login-err');
+        err.classList.remove('hidden');
+        err.innerText = 'Usuário ou senha inválidos. Utilize DASSOLER e Dassoler@123.';
+      }
+    }
+
+    function handleLogout() {
+      state.authenticated = false;
+      DB.set('auth', false);
+      render();
+    }
+
+    // --- CONTROLE DE SALDO DIESEL ---
+    function getDieselStocks() {
+      let s500 = 0, s10 = 0;
+      state.diesel.forEach(d => {
+        const q = Number(d.quantity) || 0;
+        const isRec = d.movementType === 'recebimento';
+        if (d.fuelType === 's500') s500 += isRec ? q : -q;
+        else s10 += isRec ? q : -q;
+      });
+      return {
+        s500: Math.max(0, Math.round(s500 * 100) / 100),
+        s10: Math.max(0, Math.round(s10 * 100) / 100),
+        s500Low: state.dieselConfig.s500Cap > 0 && s500 <= (state.dieselConfig.s500Cap * 0.15),
+        s10Low: state.dieselConfig.s10Cap > 0 && s10 <= (state.dieselConfig.s10Cap * 0.15)
+      };
+    }
+
+    // --- CONTROLE DE ESTOQUE DE EMBALAGENS ---
+    function getPackagingStocks() {
+      let bags = 0, sacas = 0;
+      state.packaging.forEach(p => {
+        const q = Number(p.quantity) || 0;
+        const isEnt = p.movementType === 'entrada';
+        if (p.unit === 'bag') bags += isEnt ? q : -q;
+        else sacas += isEnt ? q : -q;
+      });
+      return { bags, sacas };
+    }
+
+    // --- BACKUP & RESTORE JSON ---
+    function exportBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+      const a = document.createElement('a');
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `backup_dassoler_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function importBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const imported = JSON.parse(evt.target.result);
+          if (imported.receipts) state.receipts = imported.receipts;
+          if (imported.loads) state.loads = imported.loads;
+          if (imported.oneoffs) state.oneoffs = imported.oneoffs;
+          if (imported.diesel) state.diesel = imported.diesel;
+          if (imported.dieselConfig) state.dieselConfig = imported.dieselConfig;
+          if (imported.packaging) state.packaging = imported.packaging;
+          if (imported.meals) state.meals = imported.meals;
+          if (imported.producers) state.producers = imported.producers;
+          saveState();
+          alert('Backup restaurado com sucesso!');
+          render();
+        } catch(err) {
+          alert('Erro ao carregar arquivo de backup.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function downloadThisHtml() {
+      const blob = new Blob([document.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    // --- NAVEGAÇÃO ---
+    function setTab(tab) {
+      state.activeTab = tab;
+      state.searchQuery = '';
+      render();
+    }
+
+    // --- RENDER PRINCIPAL DO SISTEMA ---
+    function render() {
+      const app = document.getElementById('app');
+      if (!state.authenticated) {
+        app.innerHTML = renderLogin();
+        return;
+      }
+
+      const dieselStock = getDieselStocks();
+      const packStock = getPackagingStocks();
+
+      app.innerHTML = `
+        <div class="flex min-h-screen no-print">
+          <!-- Sidebar moderna com verde profundo e dourado -->
+          <aside class="w-64 bg-forest-dark text-slate-200 flex flex-col justify-between p-4 shrink-0 shadow-2xl">
+            <div>
+              <div class="bg-white p-2.5 rounded-2xl mb-4 shadow flex flex-col items-center">
+                ${LOGO_SVG}
+                <span class="mt-1 text-[10px] font-bold tracking-widest uppercase text-forest bg-forest-soft px-2.5 py-0.5 rounded-full">Originação & Exportação</span>
+              </div>
+              <div class="text-[10px] font-bold text-forest-soft/60 px-3 uppercase tracking-wider mb-2">Módulos</div>
+              <nav class="space-y-1">
+                ${renderNavItem('visao-geral', 'Visão Geral', '📊')}
+                ${renderNavItem('recebimento', 'Recebimento', '🌾')}
+                ${renderNavItem('relatorios', 'Relatórios', '📈')}
+                ${renderNavItem('carregamentos', 'Carregamentos', '🚛')}
+                ${renderNavItem('avulsas', 'Pesagens Avulsas', '⚖️')}
+                ${renderNavItem('embalagens', 'Bags & Sacas', '📦')}
+                ${renderNavItem('diesel', 'Controle Diesel', '⛽')}
+                ${renderNavItem('marmitas', 'Marmitas', '🍱')}
+              </nav>
+            </div>
+
+            <div class="border-t border-white/10 pt-4 space-y-2">
+              <div class="flex items-center gap-3 px-2 py-1">
+                <div class="w-8 h-8 rounded-full bg-gold text-forest-dark font-bold flex items-center justify-center text-xs">D</div>
+                <div>
+                  <div class="text-xs font-bold text-white leading-none">DASSOLER</div>
+                  <div class="text-[10px] text-forest-soft">Administrador</div>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="exportBackup()" class="flex-1 py-1.5 px-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[10px] font-semibold transition" title="Baixar backup dos dados">📥 Backup</button>
+                <label class="flex-1 py-1.5 px-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[10px] font-semibold text-center cursor-pointer transition" title="Restaurar backup">
+                  📤 Restaurar
+                  <input type="file" onchange="importBackup(event)" accept=".json" class="hidden">
+                </label>
+              </div>
+              <button onclick="downloadThisHtml()" class="w-full py-1.5 px-2 bg-gold/20 hover:bg-gold/30 text-gold-light rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1.5" title="Baixar index.html deste site">
+                💾 Baixar index.html
+              </button>
+              <button onclick="handleLogout()" class="w-full py-2 px-3 text-red-300 hover:text-white hover:bg-red-500/20 rounded-xl text-xs font-bold transition flex items-center gap-2">
+                🚪 Sair do sistema
+              </button>
+            </div>
+          </aside>
+
+          <!-- Conteúdo Principal -->
+          <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+            <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0">
+              <div class="flex items-center gap-3">
+                <h2 class="text-lg font-bold text-slate-800 capitalize">${state.activeTab.replace('-', ' ')}</h2>
+                <span class="text-xs text-slate-400">|</span>
+                <span class="text-xs text-slate-500 font-medium">Dassoler Agronegócios &bull; Mato Grosso, Brasil</span>
+              </div>
+              <div class="flex items-center gap-4">
+                ${(dieselStock.s500Low || dieselStock.s10Low) ? `
+                  <button onclick="setTab('diesel')" class="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                    ⚠️ Diesel abaixo de 15%
+                  </button>
+                ` : ''}
+                <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
+                  ${new Date().toLocaleDateString('pt-BR', { dateStyle: 'full' })}
+                </div>
+              </div>
+            </header>
+
+            <div class="p-8 space-y-6">
+              ${renderTabContent()}
+            </div>
+          </main>
+        </div>
+
+        <div id="modal-container"></div>
+        <div id="print-area" class="print-only"></div>
+      `;
+
+      if (state.activeTab === 'relatorios' && state.reportFilter.section === 'graos') {
+        renderCharts();
+      }
+    }
+
+    function renderNavItem(tab, label, icon) {
+      const active = state.activeTab === tab;
+      return `
+        <button onclick="setTab('${tab}')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${active ? 'bg-forest-light text-white shadow-lg border-l-4 border-gold' : 'text-slate-300 hover:bg-white/5 hover:text-white'}">
+          <span>${icon}</span>
+          <span>${label}</span>
+        </button>
+      `;
+    }
+
+    // --- CONTEÚDO DE CADA ABA ---
+    function renderTabContent() {
+      switch (state.activeTab) {
+        case 'visao-geral': return renderOverviewTab();
+        case 'recebimento': return renderReceiptsTab();
+        case 'relatorios': return renderReportsTab();
+        case 'carregamentos': return renderLoadsTab();
+        case 'avulsas': return renderOneOffsTab();
+        case 'embalagens': return renderPackagingTab();
+        case 'diesel': return renderDieselTab();
+        case 'marmitas': return renderMealsTab();
+        default: return '';
+      }
+    }
+
+    // 1. Visão Geral
+    function renderOverviewTab() {
+      const totRec = state.receipts.reduce((s, r) => s + (r.classifiedNet || r.netWeight || 0), 0);
+      const totLoad = state.loads.reduce((s, l) => s + (l.netWeight || 0), 0);
+      const dStock = getDieselStocks();
+      const pStock = getPackagingStocks();
+
+      return `
+        <div class="bg-gradient-to-r from-forest-dark via-forest to-gold p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+          <div class="relative z-10 max-w-xl">
+            <span class="text-xs uppercase tracking-widest text-gold-light font-bold">Painel de Controle Unificado</span>
+            <h2 class="text-3xl font-display font-normal mt-1 mb-2">Operação em Andamento</h2>
+            <p class="text-xs text-forest-soft/90 leading-relaxed">Controle em tempo real da entrada de produtores, pesagens de exportação, classificação oficial de grãos de Mato Grosso e estoques operacionais.</p>
+          </div>
+          <div class="mt-6 flex flex-wrap gap-3 relative z-10">
+            <button onclick="openModal('receipt')" class="px-4 py-2 bg-white text-forest font-bold rounded-xl text-xs shadow hover:bg-forest-soft transition">+ Novo Recebimento</button>
+            <button onclick="openModal('load')" class="px-4 py-2 bg-gold text-forest-dark font-bold rounded-xl text-xs shadow hover:bg-gold-light transition">+ Novo Carregamento</button>
+            <button onclick="openModal('oneoff')" class="px-4 py-2 bg-forest-light text-white font-bold rounded-xl text-xs shadow hover:bg-forest transition">+ Nova Pesagem Avulsa</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">Recebido (Comercial)</div>
+            <div class="text-2xl font-bold text-forest mt-1">${fmtTons(totRec)}</div>
+            <div class="text-[11px] text-slate-400 mt-1">${state.receipts.length} cargas de produtores</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">Carregado (Exportação)</div>
+            <div class="text-2xl font-bold text-gold mt-1">${fmtTons(totLoad)}</div>
+            <div class="text-[11px] text-slate-400 mt-1">${state.loads.length} caminhões despachados</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">Estoque Diesel</div>
+            <div class="text-2xl font-bold text-slate-800 mt-1">${fmtLiters(dStock.s500 + dStock.s10)}</div>
+            <div class="text-[11px] text-slate-400 mt-1">S500: ${fmtLiters(dStock.s500)} | S-10: ${fmtLiters(dStock.s10)}</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">Embalagens Disponíveis</div>
+            <div class="text-2xl font-bold text-slate-800 mt-1">${pStock.bags} bags / ${pStock.sacas} sacas</div>
+            <div class="text-[11px] text-slate-400 mt-1">Saldo em estoque</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-800 text-sm mb-4">Últimas Cargas de Produtores</h3>
+            ${renderRecentTable(state.receipts.slice(-5).reverse(), 'recebimento')}
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-800 text-sm mb-4">Últimos Carregamentos de Exportação</h3>
+            ${renderRecentTable(state.loads.slice(-5).reverse(), 'carregamento')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRecentTable(list, type) {
+      if (!list.length) return `<div class="text-xs text-slate-400 py-6 text-center">Nenhum registro ainda.</div>`;
+      return `
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-100 pb-2">
+                <th class="py-2">Romaneio</th>
+                <th>Data</th>
+                <th>Placa</th>
+                <th>Grão</th>
+                <th>Líquido</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${list.map(item => `
+                <tr>
+                  <td class="py-2.5 font-bold text-forest">${item.romaneio || item.weighTicket}</td>
+                  <td>${item.date}</td>
+                  <td class="font-mono">${item.plate}</td>
+                  <td>${item.grain || item.commodity || '—'}</td>
+                  <td class="font-bold text-slate-800">${fmtKg(item.classifiedNet || item.netWeight)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 2. Recebimento de Produtores
+    function renderReceiptsTab() {
+      const q = state.searchQuery.toLowerCase();
+      const filtered = state.receipts.filter(r => 
+        !q || (r.producer && r.producer.toLowerCase().includes(q)) ||
+        (r.farm && r.farm.toLowerCase().includes(q)) ||
+        (r.plate && r.plate.toLowerCase().includes(q)) ||
+        (r.romaneio && r.romaneio.toLowerCase().includes(q))
+      );
+
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Recebimento de Grãos dos Produtores</h3>
+            <p class="text-xs text-slate-500">Cadastro com Matriz/Filial, variedades e classificação MT automática.</p>
+          </div>
+          <button onclick="openModal('receipt')" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            + Novo Recebimento
+          </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
+          <span class="text-slate-400">🔍</span>
+          <input type="text" placeholder="Buscar por produtor, fazenda, placa ou romaneio..." value="${state.searchQuery}" oninput="state.searchQuery=this.value; render();" class="w-full text-xs outline-none">
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600">
+            <span>Total de Cargas: ${filtered.length}</span>
+            <span>Peso Líquido Comercial: ${fmtTons(filtered.reduce((s, r) => s + (r.classifiedNet || r.netWeight || 0), 0))}</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="p-3.5">Romaneio</th>
+                  <th class="p-3.5">Data / Unidade</th>
+                  <th class="p-3.5">Produtor / Fazenda</th>
+                  <th class="p-3.5">Placa</th>
+                  <th class="p-3.5">Grão / Variedade</th>
+                  <th class="p-3.5 text-right">Peso Neto</th>
+                  <th class="p-3.5 text-right">Descontos</th>
+                  <th class="p-3.5 text-right">Líquido</th>
+                  <th class="p-3.5 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${filtered.length ? filtered.map((r, idx) => `
+                  <tr class="hover:bg-slate-50/80 transition">
+                    <td class="p-3.5 font-bold text-forest">${r.romaneio}</td>
+                    <td class="p-3.5">
+                      <div>${r.date}</div>
+                      <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${r.unit === 'matriz' ? 'bg-forest-soft text-forest' : 'bg-gold-soft text-gold-dark'}">${r.unit.toUpperCase()}</span>
+                    </td>
+                    <td class="p-3.5">
+                      <div class="font-bold text-slate-800">${r.producer}</div>
+                      <div class="text-[11px] text-slate-400">${r.farm || '—'}</div>
+                    </td>
+                    <td class="p-3.5 font-mono font-bold">${r.plate}</td>
+                    <td class="p-3.5">
+                      <div class="font-bold text-slate-700">${r.grain || 'Livre'}</div>
+                      <div class="text-[11px] text-slate-400">${r.variety || 'Sem variedade'}</div>
+                    </td>
+                    <td class="p-3.5 text-right font-medium text-slate-600">${fmtKg(r.netWeight)}</td>
+                    <td class="p-3.5 text-right font-medium text-amber-700">${r.totalDiscount ? fmtKg(r.totalDiscount) : '0,00 kg'}</td>
+                    <td class="p-3.5 text-right font-bold text-forest text-sm">${fmtKg(r.classifiedNet || r.netWeight)}</td>
+                    <td class="p-3.5 text-center space-x-1 whitespace-nowrap">
+                      <button onclick="printTicket('recebimento', ${r.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600" title="Imprimir Comprovante">🖨️</button>
+                      <button onclick="editItem('receipt', ${r.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-blue-600 font-bold" title="Editar">✏️</button>
+                      <button onclick="deleteItem('receipt', ${r.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-red-600" title="Excluir">🗑️</button>
+                    </td>
+                  </tr>
+                `).join('') : `<tr><td colspan="9" class="p-8 text-center text-slate-400">Nenhum recebimento encontrado.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Relatórios
+    function renderReportsTab() {
+      const f = state.reportFilter;
+      const producersList = Array.from(new Set(state.receipts.map(r => r.producer).filter(Boolean))).sort();
+      
+      const availableGrains = Array.from(new Set(
+        state.receipts
+          .filter(r => !f.producer || r.producer === f.producer)
+          .map(r => r.grain)
+          .filter(Boolean)
+      )).sort();
+
+      const filtered = state.receipts.filter(r => {
+        if (f.producer && r.producer !== f.producer) return false;
+        if (f.grain && r.grain !== f.grain) return false;
+        if (f.unit && r.unit !== f.unit) return false;
+        return true;
+      });
+
+      const totNet = filtered.reduce((s, r) => s + (r.netWeight || 0), 0);
+      const totDisc = filtered.reduce((s, r) => s + (r.totalDiscount || 0), 0);
+      const totClass = filtered.reduce((s, r) => s + (r.classifiedNet || r.netWeight || 0), 0);
+
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Relatório de Estoque e Originação</h3>
+            <p class="text-xs text-slate-500">Filtragem dinâmica por produtor, grão e unidade com gráficos comparativos.</p>
+          </div>
+          <button onclick="printProducerReport()" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            🖨️ Imprimir Relatório
+          </button>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Filtrar por Produtor</label>
+              <select onchange="state.reportFilter.producer = this.value; state.reportFilter.grain = ''; render();" class="w-full h-11 px-3 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest">
+                <option value="">Todos os Produtores</option>
+                ${producersList.map(p => `<option value="${p}" ${f.producer === p ? 'selected' : ''}>${p}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Filtrar por Unidade</label>
+              <select onchange="state.reportFilter.unit = this.value; render();" class="w-full h-11 px-3 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest">
+                <option value="">Matriz e Filial</option>
+                <option value="matriz" ${f.unit === 'matriz' ? 'selected' : ''}>Apenas Matriz</option>
+                <option value="filial" ${f.unit === 'filial' ? 'selected' : ''}>Apenas Filial</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Grão Entregue pelo Produtor</label>
+              <select onchange="state.reportFilter.grain = this.value; render();" class="w-full h-11 px-3 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest">
+                <option value="">Todos os Grãos Entregues</option>
+                ${availableGrains.map(g => `<option value="${g}" ${f.grain === g ? 'selected' : ''}>${g}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Cargas Filtradas</span>
+            <div class="text-xl font-bold text-slate-900 mt-1">${filtered.length}</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Peso Neto Total</span>
+            <div class="text-xl font-bold text-slate-900 mt-1">${fmtTons(totNet)}</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="text-[11px] font-bold text-amber-700 uppercase">Descontos (Quebra)</span>
+            <div class="text-xl font-bold text-amber-700 mt-1">${fmtTons(totDisc)}</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="text-[11px] font-bold text-forest uppercase">Líquido Comercial</span>
+            <div class="text-xl font-bold text-forest mt-1">${fmtTons(totClass)}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">Volume por Grão (Toneladas)</h4>
+            <div class="h-64"><canvas id="chart-grains"></canvas></div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">Líquido x Desconto por Carga</h4>
+            <div class="h-64"><canvas id="chart-breakdown"></canvas></div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 font-bold text-xs text-slate-700">Detalhamento das Cargas Selecionadas</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                <tr>
+                  <th class="p-3">Data</th>
+                  <th class="p-3">Romaneio</th>
+                  <th class="p-3">Unidade</th>
+                  <th class="p-3">Produtor / Fazenda</th>
+                  <th class="p-3">Grão / Variedade</th>
+                  <th class="p-3 text-right">Neto</th>
+                  <th class="p-3 text-right">Desconto</th>
+                  <th class="p-3 text-right">Líquido</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${filtered.map(r => `
+                  <tr>
+                    <td class="p-3">${r.date}</td>
+                    <td class="p-3 font-bold text-forest">${r.romaneio}</td>
+                    <td class="p-3 uppercase font-bold text-[10px]">${r.unit}</td>
+                    <td class="p-3">${r.producer} <span class="text-slate-400 text-[11px]">(${r.farm || '—'})</span></td>
+                    <td class="p-3">${r.grain} <span class="text-slate-400 text-[11px]">${r.variety || ''}</span></td>
+                    <td class="p-3 text-right">${fmtKg(r.netWeight)}</td>
+                    <td class="p-3 text-right text-amber-700">${fmtKg(r.totalDiscount)}</td>
+                    <td class="p-3 text-right font-bold text-forest">${fmtKg(r.classifiedNet || r.netWeight)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCharts() {
+      const f = state.reportFilter;
+      const filtered = state.receipts.filter(r => {
+        if (f.producer && r.producer !== f.producer) return false;
+        if (f.grain && r.grain !== f.grain) return false;
+        if (f.unit && r.unit !== f.unit) return false;
+        return true;
+      });
+
+      const grainMap = {};
+      filtered.forEach(r => {
+        const g = r.grain || 'Livre';
+        grainMap[g] = (grainMap[g] || 0) + ((r.classifiedNet || r.netWeight || 0) / 1000);
+      });
+
+      const ctxG = document.getElementById('chart-grains');
+      if (ctxG) {
+        new Chart(ctxG, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(grainMap),
+            datasets: [{
+              label: 'Volume (t)',
+              data: Object.values(grainMap),
+              backgroundColor: '#0f4a32',
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      const totL = filtered.reduce((s, r) => s + (r.classifiedNet || r.netWeight || 0), 0) / 1000;
+      const totD = filtered.reduce((s, r) => s + (r.totalDiscount || 0), 0) / 1000;
+
+      const ctxB = document.getElementById('chart-breakdown');
+      if (ctxB) {
+        new Chart(ctxB, {
+          type: 'doughnut',
+          data: {
+            labels: ['Líquido Comercial (t)', 'Descontos / Quebra (t)'],
+            datasets: [{
+              data: [totL, totD],
+              backgroundColor: ['#0f4a32', '#c4a35a'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%'
+          }
+        });
+      }
+    }
+
+    // 4. Carregamentos (Exportação)
+    function renderLoadsTab() {
+      const q = state.searchQuery.toLowerCase();
+      const filtered = state.loads.filter(l => 
+        !q || (l.contract && l.contract.toLowerCase().includes(q)) ||
+        (l.plate && l.plate.toLowerCase().includes(q)) ||
+        (l.romaneio && l.romaneio.toLowerCase().includes(q))
+      );
+
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Carregamentos para Exportação</h3>
+            <p class="text-xs text-slate-500">Romaneio automático (EXP), cálculo de bags/sacas e baixa direta de estoque.</p>
+          </div>
+          <button onclick="openModal('load')" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            + Novo Carregamento
+          </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
+          <span class="text-slate-400">🔍</span>
+          <input type="text" placeholder="Buscar por contrato, placa ou romaneio..." value="${state.searchQuery}" oninput="state.searchQuery=this.value; render();" class="w-full text-xs outline-none">
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="p-3.5">Romaneio</th>
+                  <th class="p-3.5">Data</th>
+                  <th class="p-3.5">Placa & Contrato</th>
+                  <th class="p-3.5">Grão</th>
+                  <th class="p-3.5">Embalagem (Cálculo)</th>
+                  <th class="p-3.5 text-right">Peso Líquido</th>
+                  <th class="p-3.5 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${filtered.length ? filtered.map(l => `
+                  <tr class="hover:bg-slate-50/80 transition">
+                    <td class="p-3.5 font-bold text-forest">${l.romaneio}</td>
+                    <td class="p-3.5">${l.date}</td>
+                    <td class="p-3.5">
+                      <div class="font-mono font-bold">${l.plate}</div>
+                      <div class="text-[11px] text-slate-400">${l.contract}</div>
+                    </td>
+                    <td class="p-3.5 font-medium">${l.grain || '—'}</td>
+                    <td class="p-3.5">
+                      ${l.packUnit ? `
+                        <span class="font-bold text-slate-800">${l.packQty} ${l.packUnit === 'bag' ? 'bags' : 'sacas'}</span>
+                        <div class="text-[10px] text-slate-400">de ${l.packCap} kg cada</div>
+                      ` : '<span class="text-slate-400">Granel / Não utiliza</span>'}
+                    </td>
+                    <td class="p-3.5 text-right font-bold text-forest text-sm">${fmtKg(l.netWeight)}</td>
+                    <td class="p-3.5 text-center space-x-1 whitespace-nowrap">
+                      <button onclick="printTicket('carregamento', ${l.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600" title="Imprimir">🖨️</button>
+                      <button onclick="editItem('load', ${l.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-blue-600 font-bold" title="Editar">✏️</button>
+                      <button onclick="deleteItem('load', ${l.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-red-600" title="Excluir">🗑️</button>
+                    </td>
+                  </tr>
+                `).join('') : `<tr><td colspan="7" class="p-8 text-center text-slate-400">Nenhum carregamento encontrado.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // 5. Pesagens Avulsas
+    function renderOneOffsTab() {
+      const q = state.searchQuery.toLowerCase();
+      const filtered = state.oneoffs.filter(o => 
+        !q || (o.plate && o.plate.toLowerCase().includes(q)) ||
+        (o.romaneio && o.romaneio.toLowerCase().includes(q)) ||
+        (o.driver && o.driver.toLowerCase().includes(q))
+      );
+
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Pesagens Avulsas na Balança</h3>
+            <p class="text-xs text-slate-500">Pesagem de qualquer veículo, produto livre, Matriz ou Filial e taxa de R$ 50 opcional.</p>
+          </div>
+          <button onclick="openModal('oneoff')" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            + Nova Pesagem Avulsa
+          </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
+          <span class="text-slate-400">🔍</span>
+          <input type="text" placeholder="Buscar por placa, motorista ou romaneio..." value="${state.searchQuery}" oninput="state.searchQuery=this.value; render();" class="w-full text-xs outline-none">
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="p-3.5">Romaneio</th>
+                  <th class="p-3.5">Data / Unidade</th>
+                  <th class="p-3.5">Placa & Motorista</th>
+                  <th class="p-3.5">Produto / Variedade</th>
+                  <th class="p-3.5 text-right">Peso Neto</th>
+                  <th class="p-3.5 text-center">Taxa R$ 50</th>
+                  <th class="p-3.5 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${filtered.length ? filtered.map(o => `
+                  <tr class="hover:bg-slate-50/80 transition">
+                    <td class="p-3.5 font-bold text-forest">${o.romaneio}</td>
+                    <td class="p-3.5">
+                      <div>${o.date}</div>
+                      <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${o.unit === 'matriz' ? 'bg-forest-soft text-forest' : 'bg-gold-soft text-gold-dark'}">${(o.unit || 'matriz').toUpperCase()}</span>
+                    </td>
+                    <td class="p-3.5">
+                      <div class="font-mono font-bold">${o.plate}</div>
+                      <div class="text-[11px] text-slate-400">${o.driver || 'Não informado'}</div>
+                    </td>
+                    <td class="p-3.5">
+                      <div>${o.grain || 'Livre'}</div>
+                      <div class="text-[11px] text-slate-400">${o.variety || ''}</div>
+                    </td>
+                    <td class="p-3.5 text-right font-bold text-slate-800">${fmtKg(o.netWeight)}</td>
+                    <td class="p-3.5 text-center">
+                      ${o.chargeable ? '<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold text-[10px]">R$ 50,00</span>' : '<span class="text-slate-400 text-[10px]">Isento</span>'}
+                    </td>
+                    <td class="p-3.5 text-center space-x-1 whitespace-nowrap">
+                      <button onclick="printTicket('avulsa', ${o.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600" title="Imprimir">🖨️</button>
+                      <button onclick="editItem('oneoff', ${o.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-blue-600 font-bold" title="Editar">✏️</button>
+                      <button onclick="deleteItem('oneoff', ${o.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-red-600" title="Excluir">🗑️</button>
+                    </td>
+                  </tr>
+                `).join('') : `<tr><td colspan="7" class="p-8 text-center text-slate-400">Nenhuma pesagem avulsa encontrada.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // 6. Bags & Sacas
+    function renderPackagingTab() {
+      const stock = getPackagingStocks();
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Almoxarifado de Embalagens</h3>
+            <p class="text-xs text-slate-500">Sacas de 1 a 100 kg e Big Bags de 250 a 2.000 kg.</p>
+          </div>
+          <button onclick="openModal('packaging')" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            + Lançar Movimentação
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-slate-500 uppercase">Estoque de Big Bags</div>
+              <div class="text-3xl font-bold text-forest mt-1">${stock.bags} un</div>
+              <div class="text-[11px] text-slate-400 mt-1">Capacidades de 250 a 2.000 kg</div>
+            </div>
+            <div class="text-4xl">📦</div>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-slate-500 uppercase">Estoque de Sacas</div>
+              <div class="text-3xl font-bold text-gold mt-1">${stock.sacas} un</div>
+              <div class="text-[11px] text-slate-400 mt-1">Sacas de 1 a 100 kg</div>
+            </div>
+            <div class="text-4xl">🌾</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 font-bold text-xs text-slate-700">Histórico de Movimentações</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                <tr>
+                  <th class="p-3">Data</th>
+                  <th class="p-3">Tipo</th>
+                  <th class="p-3">Embalagem</th>
+                  <th class="p-3">Tamanho</th>
+                  <th class="p-3 text-right">Quantidade</th>
+                  <th class="p-3">Origem / Referência</th>
+                  <th class="p-3 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${state.packaging.map(p => `
+                  <tr>
+                    <td class="p-3">${p.date}</td>
+                    <td class="p-3">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold ${p.movementType === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        ${p.movementType === 'entrada' ? 'ENTRADA' : 'SAÍDA'}
+                      </span>
+                    </td>
+                    <td class="p-3 font-bold uppercase">${p.unit}</td>
+                    <td class="p-3">${p.capacityKg} kg</td>
+                    <td class="p-3 text-right font-bold">${p.quantity} un</td>
+                    <td class="p-3 text-slate-500">${p.reference || '—'}</td>
+                    <td class="p-3 text-center">
+                      <button onclick="deleteItem('packaging', ${p.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-red-600" title="Excluir">🗑️</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // 7. Controle de Diesel
+    function renderDieselTab() {
+      const stock = getDieselStocks();
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Controle de Combustível (Diesel)</h3>
+            <p class="text-xs text-slate-500">Tanques independentes de Diesel S500 e Diesel S-10 com alerta a 15%.</p>
+          </div>
+          <button onclick="openModal('diesel')" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            + Lançar Diesel
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-2xl border ${stock.s500Low ? 'border-amber-300 ring-2 ring-amber-200' : 'border-slate-100'} shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500 uppercase">Tanque Diesel S500</span>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${stock.s500Low ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">
+                ${stock.s500Low ? '⚠️ Nível Baixo (≤15%)' : '✅ Nível Regular'}
+              </span>
+            </div>
+            <div class="text-3xl font-bold text-slate-900 mt-2">${fmtLiters(stock.s500)}</div>
+            <div class="text-xs text-slate-400 mt-1">Capacidade: ${fmtLiters(state.dieselConfig.s500Cap)}</div>
+            <div class="w-full bg-slate-100 h-3 rounded-full mt-4 overflow-hidden">
+              <div class="bg-forest h-full rounded-full transition-all" style="width: ${Math.min(100, (stock.s500 / state.dieselConfig.s500Cap) * 100 || 0)}%"></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl border ${stock.s10Low ? 'border-amber-300 ring-2 ring-amber-200' : 'border-slate-100'} shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500 uppercase">Tanque Diesel S-10</span>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${stock.s10Low ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">
+                ${stock.s10Low ? '⚠️ Nível Baixo (≤15%)' : '✅ Nível Regular'}
+              </span>
+            </div>
+            <div class="text-3xl font-bold text-slate-900 mt-2">${fmtLiters(stock.s10)}</div>
+            <div class="text-xs text-slate-400 mt-1">Capacidade: ${fmtLiters(state.dieselConfig.s10Cap)}</div>
+            <div class="w-full bg-slate-100 h-3 rounded-full mt-4 overflow-hidden">
+              <div class="bg-gold h-full rounded-full transition-all" style="width: ${Math.min(100, (stock.s10 / state.dieselConfig.s10Cap) * 100 || 0)}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 font-bold text-xs text-slate-700">Histórico de Entradas e Abastecimentos</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                <tr>
+                  <th class="p-3">Data</th>
+                  <th class="p-3">Movimento</th>
+                  <th class="p-3">Combustível</th>
+                  <th class="p-3 text-right">Litros</th>
+                  <th class="p-3">Descrição / Veículo</th>
+                  <th class="p-3">Assinado por</th>
+                  <th class="p-3 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${state.diesel.map(d => `
+                  <tr>
+                    <td class="p-3">${d.date}</td>
+                    <td class="p-3">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold ${d.movementType === 'recebimento' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">
+                        ${d.movementType === 'recebimento' ? 'RECEBIMENTO' : 'ABASTECIMENTO'}
+                      </span>
+                    </td>
+                    <td class="p-3 font-bold uppercase">${d.fuelType}</td>
+                    <td class="p-3 text-right font-bold ${d.movementType === 'recebimento' ? 'text-forest' : 'text-slate-700'}">${fmtLiters(d.quantity)}</td>
+                    <td class="p-3">${d.description || '—'}</td>
+                    <td class="p-3 font-medium">${d.signedBy || '—'}</td>
+                    <td class="p-3 text-center">
+                      <button onclick="deleteItem('diesel', ${d.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-red-600" title="Excluir">🗑️</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // 8. Pedidos de Marmitas
+    function renderMealsTab() {
+      const tot = state.meals.reduce((s, m) => s + (Number(m.quantity) || 0), 0);
+      const mMatriz = state.meals.filter(m => m.unit === 'matriz').reduce((s, m) => s + (Number(m.quantity) || 0), 0);
+      const mFilial = state.meals.filter(m => m.unit === 'filial').reduce((s, m) => s + (Number(m.quantity) || 0), 0);
+
+      return `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-display font-bold text-slate-900">Controle de Marmitas</h3>
+            <p class="text-xs text-slate-500">Pedidos separados por Matriz e Filial, tamanhos P, M e G.</p>
+          </div>
+          <button onclick="openModal('meal')" class="px-5 py-2.5 bg-forest hover:bg-forest-dark text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+            + Lançar Pedido de Marmita
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <span class="text-xs font-bold text-slate-500 uppercase">Total Geral</span>
+            <div class="text-3xl font-bold text-forest mt-1">${tot} marmitas</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <span class="text-xs font-bold text-slate-500 uppercase">Matriz</span>
+            <div class="text-3xl font-bold text-slate-800 mt-1">${mMatriz} marmitas</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <span class="text-xs font-bold text-slate-500 uppercase">Filial</span>
+            <div class="text-3xl font-bold text-gold mt-1">${mFilial} marmitas</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 font-bold text-xs text-slate-700">Lista de Pedidos</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                <tr>
+                  <th class="p-3">Data</th>
+                  <th class="p-3">Unidade</th>
+                  <th class="p-3">Tamanho</th>
+                  <th class="p-3 text-right">Quantidade</th>
+                  <th class="p-3">Solicitante</th>
+                  <th class="p-3">Observações</th>
+                  <th class="p-3 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${state.meals.map(m => `
+                  <tr>
+                    <td class="p-3">${m.date}</td>
+                    <td class="p-3 font-bold uppercase text-[10px]">${m.unit}</td>
+                    <td class="p-3 font-bold uppercase">${m.size}</td>
+                    <td class="p-3 text-right font-bold text-forest">${m.quantity}</td>
+                    <td class="p-3 font-medium">${m.requester || '—'}</td>
+                    <td class="p-3 text-slate-400">${m.notes || '—'}</td>
+                    <td class="p-3 text-center">
+                      <button onclick="deleteItem('meal', ${m.id})" class="p-1.5 hover:bg-slate-100 rounded-lg text-red-600" title="Excluir">🗑️</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- MODAIS ---
+    function openModal(type, item = null) {
+      state.currentModal = type;
+      state.editingItem = item;
+      const c = document.getElementById('modal-container');
+      c.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-8 max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <h3 class="font-bold text-slate-800 text-sm">${item ? 'Editar' : 'Novo'} ${getModalTitle(type)}</h3>
+              <button onclick="closeModal()" class="w-8 h-8 rounded-full hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scroll flex-1">
+              ${renderModalForm(type, item)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function closeModal() {
+      state.currentModal = null;
+      state.editingItem = null;
+      document.getElementById('modal-container').innerHTML = '';
+    }
+
+    function getModalTitle(t) {
+      switch(t) {
+        case 'receipt': return 'Recebimento de Produtor';
+        case 'load': return 'Carregamento de Exportação';
+        case 'oneoff': return 'Pesagem Avulsa';
+        case 'packaging': return 'Movimentação de Embalagens';
+        case 'diesel': return 'Lançamento de Diesel';
+        case 'meal': return 'Pedido de Marmita';
+      }
+    }
+
+    function renderModalForm(type, item) {
+      const today = new Date().toISOString().slice(0, 10);
+      switch(type) {
+        case 'receipt': {
+          const gKeys = Object.keys(GRAINS_DATA);
+          return `
+            <form onsubmit="handleSaveReceipt(event, ${item ? item.id : 'null'})" class="space-y-4 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Unidade *</label>
+                  <select id="m-unit" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                    <option value="matriz" ${item && item.unit === 'matriz' ? 'selected' : ''}>Matriz</option>
+                    <option value="filial" ${item && item.unit === 'filial' ? 'selected' : ''}>Filial</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Data *</label>
+                  <input type="date" id="m-date" value="${item ? item.date : today}" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Produtor *</label>
+                  <input type="text" id="m-prod" value="${item ? item.producer : ''}" list="dl-prods" placeholder="Nome do produtor" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                  <datalist id="dl-prods">
+                    ${state.producers.map(p => `<option value="${p}">`).join('')}
+                  </datalist>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Fazenda / Origem *</label>
+                  <input type="text" id="m-farm" value="${item ? item.farm : ''}" placeholder="Fazenda ou local" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Placa *</label>
+                  <input type="text" id="m-plate" value="${item ? item.plate : ''}" placeholder="ABC1D23" class="w-full h-10 px-3 border border-slate-200 rounded-xl uppercase font-mono" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Grão (Opcional)</label>
+                  <select id="m-grain" onchange="updateVarietiesSelect(this.value)" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                    <option value="">Livre / Não informado</option>
+                    ${gKeys.map(g => `<option value="${g}" ${item && item.grain === g ? 'selected' : ''}>${g}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Variedade (Opcional)</label>
+                  <input type="text" id="m-var" value="${item ? (item.variety || '') : ''}" list="dl-vars" placeholder="Opcional" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                  <datalist id="dl-vars"></datalist>
+                </div>
+              </div>
+
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <div class="font-bold text-slate-800 text-[11px] uppercase">Pesagem e Classificação MT</div>
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Peso Bruto (kg) *</label>
+                    <input type="number" step="0.01" id="m-bruto" value="${item ? item.grossWeight : ''}" oninput="calcReceiptModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Tara (kg) *</label>
+                    <input type="number" step="0.01" id="m-tara" value="${item ? item.tareWeight : ''}" oninput="calcReceiptModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Peso Neto (kg)</label>
+                    <input type="text" id="m-neto" readonly class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 pt-2">
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Umidade (%)</label>
+                    <input type="number" step="0.01" id="m-umid" value="${item ? (item.moisture || '') : ''}" oninput="calcReceiptModal()" placeholder="Padrão MT" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Impureza (%)</label>
+                    <input type="number" step="0.01" id="m-imp" value="${item ? (item.impurity || '') : ''}" oninput="calcReceiptModal()" placeholder="Padrão MT" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Avariados (%)</label>
+                    <input type="number" step="0.01" id="m-dam" value="${item ? (item.damaged || '') : ''}" oninput="calcReceiptModal()" placeholder="Padrão MT" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                  </div>
+                </div>
+
+                <div class="pt-2 flex items-center justify-between border-t border-slate-200">
+                  <div>
+                    <label class="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                      <input type="checkbox" id="m-override" onchange="toggleManualDiscount(this.checked)">
+                      Ajustar Desconto Manualmente (kg)
+                    </label>
+                    <input type="number" step="0.01" id="m-manual-disc" oninput="calcReceiptModal()" class="hidden mt-1 h-9 px-2.5 border border-slate-200 rounded-lg text-xs" placeholder="Desconto em kg">
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Peso Líquido Comercial</span>
+                    <div id="m-liq-display" class="text-xl font-bold text-forest">0,00 kg</div>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="w-full h-11 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow transition">
+                ${item ? 'Salvar Alterações' : 'Confirmar Recebimento'}
+              </button>
+            </form>
+          `;
+        }
+
+        case 'load': {
+          return `
+            <form onsubmit="handleSaveLoad(event, ${item ? item.id : 'null'})" class="space-y-4 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Contrato *</label>
+                  <input type="text" id="l-contract" value="${item ? item.contract : ''}" placeholder="Ex: CT-2026/01" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Placa *</label>
+                  <input type="text" id="l-plate" value="${item ? item.plate : ''}" placeholder="ABC1D23" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-mono uppercase" required>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Data *</label>
+                  <input type="date" id="l-date" value="${item ? item.date : today}" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Grão / Produto</label>
+                  <select id="l-grain" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                    <option value="">Livre / Granel</option>
+                    ${Object.keys(GRAINS_DATA).map(g => `<option value="${g}" ${item && item.grain === g ? 'selected' : ''}>${g}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Peso Bruto (kg) *</label>
+                  <input type="number" step="0.01" id="l-bruto" value="${item ? item.grossWeight : ''}" oninput="calcLoadModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Tara (kg) *</label>
+                  <input type="number" step="0.01" id="l-tara" value="${item ? item.tareWeight : ''}" oninput="calcLoadModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Peso Líquido</label>
+                  <input type="text" id="l-neto" readonly class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold text-forest">
+                </div>
+              </div>
+
+              <div class="bg-forest-soft/40 p-4 rounded-2xl border border-forest/10 space-y-3">
+                <div class="font-bold text-forest-dark text-[11px] uppercase">Cálculo Automático de Embalagens</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Tipo de Embalagem</label>
+                    <select id="l-unit" onchange="updateLoadPackSizes(this.value)" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                      <option value="">Não utiliza (Granel)</option>
+                      <option value="bag" ${item && item.packUnit === 'bag' ? 'selected' : ''}>Bags (FIBC)</option>
+                      <option value="saca" ${item && item.packUnit === 'saca' ? 'selected' : ''}>Sacas</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 mb-1">Tamanho da Embalagem (kg)</label>
+                    <select id="l-cap" onchange="calcLoadModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold">
+                      <option value="1000">1.000 kg (Padrão Bag)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-xs pt-2">
+                  <span class="text-slate-600 font-medium">Quantidade calculada:</span>
+                  <span id="l-pack-qty-display" class="font-bold text-forest text-base">0 unidades</span>
+                </div>
+              </div>
+
+              <button type="submit" class="w-full h-11 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow transition">
+                ${item ? 'Salvar Alterações' : 'Confirmar Carregamento'}
+              </button>
+            </form>
+          `;
+        }
+
+        case 'oneoff': {
+          return `
+            <form onsubmit="handleSaveOneoff(event, ${item ? item.id : 'null'})" class="space-y-4 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Unidade *</label>
+                  <select id="o-unit" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                    <option value="matriz" ${item && item.unit === 'matriz' ? 'selected' : ''}>Matriz</option>
+                    <option value="filial" ${item && item.unit === 'filial' ? 'selected' : ''}>Filial</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Data *</label>
+                  <input type="date" id="o-date" value="${item ? item.date : today}" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Placa *</label>
+                  <input type="text" id="o-plate" value="${item ? item.plate : ''}" placeholder="ABC1D23" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-mono uppercase" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Motorista (Opcional)</label>
+                  <input type="text" id="o-driver" value="${item ? (item.driver || '') : ''}" placeholder="Nome" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Produto / Grão (Livre)</label>
+                  <input type="text" id="o-grain" value="${item ? (item.grain || '') : ''}" placeholder="Ex: Calcário, Fertilizante, Soja..." class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Variedade (Opcional)</label>
+                  <input type="text" id="o-var" value="${item ? (item.variety || '') : ''}" placeholder="Opcional" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Peso Bruto *</label>
+                  <input type="number" step="0.01" id="o-bruto" value="${item ? item.grossWeight : ''}" oninput="calcOneoffModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Tara *</label>
+                  <input type="number" step="0.01" id="o-tara" value="${item ? item.tareWeight : ''}" oninput="calcOneoffModal()" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Peso Líquido</label>
+                  <input type="text" id="o-neto" readonly class="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold text-forest">
+                </div>
+              </div>
+
+              <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+                <label class="flex items-center gap-2 font-bold text-amber-900 cursor-pointer">
+                  <input type="checkbox" id="o-charge" ${item && item.chargeable ? 'checked' : ''} class="w-4 h-4 text-forest rounded">
+                  Cobrar Taxa de Pesagem Avulsa (R$ 50,00)
+                </label>
+                <span class="text-xs font-bold text-amber-800">R$ 50,00</span>
+              </div>
+
+              <button type="submit" class="w-full h-11 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow transition">
+                ${item ? 'Salvar Alterações' : 'Confirmar Pesagem'}
+              </button>
+            </form>
+          `;
+        }
+
+        case 'packaging': {
+          return `
+            <form onsubmit="handleSavePackaging(event)" class="space-y-4 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Movimento *</label>
+                  <select id="p-type" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                    <option value="entrada">Entrada / Recebimento</option>
+                    <option value="saida">Saída / Baixa Manual</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Data *</label>
+                  <input type="date" id="p-date" value="${today}" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Tipo de Embalagem *</label>
+                  <select id="p-unit" onchange="updatePackModalSizes(this.value)" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                    <option value="bag">Bag (FIBC)</option>
+                    <option value="saca">Saca</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Tamanho da Embalagem *</label>
+                  <select id="p-cap" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                    ${BAG_SIZES.map(s => `<option value="${s}">${s} kg</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Quantidade de Unidades *</label>
+                <input type="number" min="1" id="p-qty" value="100" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Fornecedor / Referência (Opcional)</label>
+                <input type="text" id="p-ref" placeholder="NF, lote ou procedência" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+              </div>
+
+              <button type="submit" class="w-full h-11 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow transition">
+                Confirmar Lançamento
+              </button>
+            </form>
+          `;
+        }
+
+        case 'diesel': {
+          return `
+            <form onsubmit="handleSaveDiesel(event)" class="space-y-4 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Operação *</label>
+                  <select id="d-type" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                    <option value="recebimento">Recebimento (Soma no Saldo)</option>
+                    <option value="abastecimento">Abastecimento (Debita do Saldo)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Tipo de Diesel *</label>
+                  <select id="d-fuel" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                    <option value="s500">Diesel S500</option>
+                    <option value="s10" selected>Diesel S-10</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Quantidade em Litros *</label>
+                  <input type="number" step="0.01" min="0.01" id="d-qty" placeholder="Ex: 5000" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Data *</label>
+                  <input type="date" id="d-date" value="${today}" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">O que foi abastecido / Fornecedor *</label>
+                <input type="text" id="d-desc" placeholder="Ex: Trator John Deere 7230 / NF Posto Central" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Quem assinou o abastecimento *</label>
+                <input type="text" id="d-signed" placeholder="Nome do responsável" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+              </div>
+
+              <button type="submit" class="w-full h-11 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow transition">
+                Confirmar Lançamento de Diesel
+              </button>
+            </form>
+          `;
+        }
+
+        case 'meal': {
+          return `
+            <form onsubmit="handleSaveMeal(event)" class="space-y-4 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Unidade *</label>
+                  <select id="me-unit" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                    <option value="matriz">Matriz</option>
+                    <option value="filial">Filial</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Tamanho *</label>
+                  <select id="me-size" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                    <option value="p">P (Pequena)</option>
+                    <option value="m" selected>M (Média)</option>
+                    <option value="g">G (Grande)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Quantidade *</label>
+                  <input type="number" min="1" id="me-qty" value="1" class="w-full h-10 px-3 border border-slate-200 rounded-xl font-bold" required>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">Data *</label>
+                  <input type="date" id="me-date" value="${today}" class="w-full h-10 px-3 border border-slate-200 rounded-xl" required>
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Solicitante (Opcional)</label>
+                <input type="text" id="me-req" placeholder="Nome do funcionário ou setor" class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Observações (Opcional)</label>
+                <input type="text" id="me-notes" placeholder="Restrições, horário de entrega..." class="w-full h-10 px-3 border border-slate-200 rounded-xl">
+              </div>
+
+              <button type="submit" class="w-full h-11 bg-forest hover:bg-forest-dark text-white font-bold rounded-xl shadow transition">
+                Confirmar Pedido de Marmita
+              </button>
+            </form>
+          `;
+        }
+      }
+    }
+
+    // --- CÁLCULOS DINÂMICOS NOS FORMULÁRIOS ---
+    function updateVarietiesSelect(grainKey) {
+      const dl = document.getElementById('dl-vars');
+      if (!dl) return;
+      if (!grainKey || !GRAINS_DATA[grainKey]) {
+        dl.innerHTML = '';
+        return;
+      }
+      dl.innerHTML = GRAINS_DATA[grainKey].varieties.map(v => `<option value="${v}">`).join('');
+    }
+
+    function toggleManualDiscount(checked) {
+      const el = document.getElementById('m-manual-disc');
+      if (!el) return;
+      el.classList.toggle('hidden', !checked);
+      calcReceiptModal();
+    }
+
+    function calcReceiptModal() {
+      const b = Number(document.getElementById('m-bruto')?.value) || 0;
+      const t = Number(document.getElementById('m-tara')?.value) || 0;
+      const net = Math.max(0, b - t);
+      const netoEl = document.getElementById('m-neto');
+      if (netoEl) netoEl.value = net.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+      const g = document.getElementById('m-grain')?.value;
+      const u = Number(document.getElementById('m-umid')?.value) || 0;
+      const i = Number(document.getElementById('m-imp')?.value) || 0;
+      const d = Number(document.getElementById('m-dam')?.value) || 0;
+
+      const isManual = document.getElementById('m-override')?.checked;
+      const manualVal = isManual ? Number(document.getElementById('m-manual-disc')?.value) : null;
+
+      const res = calcDiscounts(g, net, u, i, d, manualVal);
+      const disp = document.getElementById('m-liq-display');
+      if (disp) disp.innerText = fmtKg(res.classifiedNet);
+    }
+
+    function calcLoadModal() {
+      const b = Number(document.getElementById('l-bruto')?.value) || 0;
+      const t = Number(document.getElementById('l-tara')?.value) || 0;
+      const net = Math.max(0, b - t);
+      const netoEl = document.getElementById('l-neto');
+      if (netoEl) netoEl.value = net.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+      const u = document.getElementById('l-unit')?.value;
+      const c = Number(document.getElementById('l-cap')?.value) || 0;
+      const qty = calcAutoPackaging(net, u, c);
+      const disp = document.getElementById('l-pack-qty-display');
+      if (disp) disp.innerText = `${qty} unidades`;
+    }
+
+    function updateLoadPackSizes(unit) {
+      const sel = document.getElementById('l-cap');
+      if (!sel) return;
+      if (unit === 'saca') {
+        sel.innerHTML = SACA_SIZES.map(s => `<option value="${s}" ${s === 60 ? 'selected' : ''}>${s} kg</option>`).join('');
+      } else if (unit === 'bag') {
+        sel.innerHTML = BAG_SIZES.map(b => `<option value="${b}" ${b === 1000 ? 'selected' : ''}>${b} kg</option>`).join('');
+      } else {
+        sel.innerHTML = `<option value="0">0 kg</option>`;
+      }
+      calcLoadModal();
+    }
+
+    function calcOneoffModal() {
+      const b = Number(document.getElementById('o-bruto')?.value) || 0;
+      const t = Number(document.getElementById('o-tara')?.value) || 0;
+      const net = Math.max(0, b - t);
+      const netoEl = document.getElementById('o-neto');
+      if (netoEl) netoEl.value = net.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    }
+
+    function updatePackModalSizes(unit) {
+      const sel = document.getElementById('p-cap');
+      if (!sel) return;
+      if (unit === 'saca') {
+        sel.innerHTML = SACA_SIZES.map(s => `<option value="${s}" ${s === 60 ? 'selected' : ''}>${s} kg</option>`).join('');
+      } else {
+        sel.innerHTML = BAG_SIZES.map(b => `<option value="${b}" ${b === 1000 ? 'selected' : ''}>${b} kg</option>`).join('');
+      }
+    }
+
+    // --- HANDLERS DE SALVAR NO BANCO LOCAL ---
+    function handleSaveReceipt(e, editId) {
+      e.preventDefault();
+      const b = Number(document.getElementById('m-bruto').value) || 0;
+      const t = Number(document.getElementById('m-tara').value) || 0;
+      const net = Math.max(0, b - t);
+      const g = document.getElementById('m-grain').value;
+      const u = Number(document.getElementById('m-umid').value) || 0;
+      const i = Number(document.getElementById('m-imp').value) || 0;
+      const d = Number(document.getElementById('m-dam').value) || 0;
+      const isManual = document.getElementById('m-override').checked;
+      const manVal = isManual ? (Number(document.getElementById('m-manual-disc').value) || 0) : null;
+      const res = calcDiscounts(g, net, u, i, d, manVal);
+
+      const prodName = document.getElementById('m-prod').value.trim();
+      if (prodName && !state.producers.includes(prodName)) {
+        state.producers.push(prodName);
+      }
+
+      const item = {
+        id: editId || Date.now(),
+        romaneio: editId ? state.editingItem.romaneio : generateRomaneio('REC', state.receipts),
+        unit: document.getElementById('m-unit').value,
+        date: document.getElementById('m-date').value,
+        producer: prodName,
+        farm: document.getElementById('m-farm').value.trim(),
+        plate: document.getElementById('m-plate').value.trim().toUpperCase(),
+        grain: g,
+        variety: document.getElementById('m-var').value.trim(),
+        grossWeight: b,
+        tareWeight: t,
+        netWeight: net,
+        moisture: u,
+        impurity: i,
+        damaged: d,
+        totalDiscount: res.totalDiscount,
+        classifiedNet: res.classifiedNet
+      };
+
+      if (editId) {
+        state.receipts = state.receipts.map(x => x.id === editId ? item : x);
+      } else {
+        state.receipts.push(item);
+      }
+
+      saveState();
+      closeModal();
+      render();
+    }
+
+    function handleSaveLoad(e, editId) {
+      e.preventDefault();
+      const b = Number(document.getElementById('l-bruto').value) || 0;
+      const t = Number(document.getElementById('l-tara').value) || 0;
+      const net = Math.max(0, b - t);
+      const u = document.getElementById('l-unit').value;
+      const c = Number(document.getElementById('l-cap').value) || 0;
+      const q = calcAutoPackaging(net, u, c);
+
+      const item = {
+        id: editId || Date.now(),
+        romaneio: editId ? state.editingItem.romaneio : generateRomaneio('EXP', state.loads),
+        contract: document.getElementById('l-contract').value.trim(),
+        plate: document.getElementById('l-plate').value.trim().toUpperCase(),
+        date: document.getElementById('l-date').value,
+        grain: document.getElementById('l-grain').value,
+        grossWeight: b,
+        tareWeight: t,
+        netWeight: net,
+        packUnit: u,
+        packCap: c,
+        packQty: q
+      };
+
+      if (editId) {
+        state.loads = state.loads.map(x => x.id === editId ? item : x);
+      } else {
+        state.loads.push(item);
+        if (u && q > 0) {
+          state.packaging.push({
+            id: Date.now() + 1,
+            movementType: 'saida',
+            date: item.date,
+            unit: u,
+            capacityKg: c,
+            quantity: q,
+            reference: `Baixa automática Romaneio ${item.romaneio}`
+          });
+        }
+      }
+
+      saveState();
+      closeModal();
+      render();
+    }
+
+    function handleSaveOneoff(e, editId) {
+      e.preventDefault();
+      const b = Number(document.getElementById('o-bruto').value) || 0;
+      const t = Number(document.getElementById('o-tara').value) || 0;
+      const net = Math.max(0, b - t);
+
+      const item = {
+        id: editId || Date.now(),
+        romaneio: editId ? state.editingItem.romaneio : generateRomaneio('AVL', state.oneoffs),
+        unit: document.getElementById('o-unit').value,
+        date: document.getElementById('o-date').value,
+        plate: document.getElementById('o-plate').value.trim().toUpperCase(),
+        driver: document.getElementById('o-driver').value.trim(),
+        grain: document.getElementById('o-grain').value.trim(),
+        variety: document.getElementById('o-var').value.trim(),
+        grossWeight: b,
+        tareWeight: t,
+        netWeight: net,
+        chargeable: document.getElementById('o-charge').checked
+      };
+
+      if (editId) {
+        state.oneoffs = state.oneoffs.map(x => x.id === editId ? item : x);
+      } else {
+        state.oneoffs.push(item);
+      }
+
+      saveState();
+      closeModal();
+      render();
+    }
+
+    function handleSavePackaging(e) {
+      e.preventDefault();
+      const item = {
+        id: Date.now(),
+        movementType: document.getElementById('p-type').value,
+        date: document.getElementById('p-date').value,
+        unit: document.getElementById('p-unit').value,
+        capacityKg: Number(document.getElementById('p-cap').value) || 0,
+        quantity: Number(document.getElementById('p-qty').value) || 0,
+        reference: document.getElementById('p-ref').value.trim()
+      };
+      state.packaging.push(item);
+      saveState();
+      closeModal();
+      render();
+    }
+
+    function handleSaveDiesel(e) {
+      e.preventDefault();
+      const item = {
+        id: Date.now(),
+        movementType: document.getElementById('d-type').value,
+        fuelType: document.getElementById('d-fuel').value,
+        quantity: Number(document.getElementById('d-qty').value) || 0,
+        date: document.getElementById('d-date').value,
+        description: document.getElementById('d-desc').value.trim(),
+        signedBy: document.getElementById('d-signed').value.trim()
+      };
+      state.diesel.push(item);
+      saveState();
+      closeModal();
+      render();
+    }
+
+    function handleSaveMeal(e) {
+      e.preventDefault();
+      const item = {
+        id: Date.now(),
+        unit: document.getElementById('me-unit').value,
+        size: document.getElementById('me-size').value,
+        quantity: Number(document.getElementById('me-qty').value) || 0,
+        date: document.getElementById('me-date').value,
+        requester: document.getElementById('me-req').value.trim(),
+        notes: document.getElementById('me-notes').value.trim()
+      };
+      state.meals.push(item);
+      saveState();
+      closeModal();
+      render();
+    }
+
+    // --- EDIÇÃO E EXCLUSÃO RÁPIDA ---
+    function editItem(type, id) {
+      let list = [];
+      if (type === 'receipt') list = state.receipts;
+      else if (type === 'load') list = state.loads;
+      else if (type === 'oneoff') list = state.oneoffs;
+      const item = list.find(x => x.id === id);
+      if (item) openModal(type, item);
+    }
+
+    function deleteItem(type, id) {
+      if (!confirm('Deseja realmente excluir este registro? Os saldos e relatórios serão recalculados.')) return;
+      if (type === 'receipt') state.receipts = state.receipts.filter(x => x.id !== id);
+      else if (type === 'load') state.loads = state.loads.filter(x => x.id !== id);
+      else if (type === 'oneoff') state.oneoffs = state.oneoffs.filter(x => x.id !== id);
+      else if (type === 'packaging') state.packaging = state.packaging.filter(x => x.id !== id);
+      else if (type === 'diesel') state.diesel = state.diesel.filter(x => x.id !== id);
+      else if (type === 'meal') state.meals = state.meals.filter(x => x.id !== id);
+      saveState();
+      render();
+    }
+
+    // --- IMPRESSÃO COM MARCA D'ÁGUA DA LOGO DASSOLER ---
+    function printTicket(type, id) {
+      let item = null;
+      let title = '';
+      if (type === 'recebimento') { item = state.receipts.find(x => x.id === id); title = 'Romaneio de Recebimento'; }
+      else if (type === 'carregamento') { item = state.loads.find(x => x.id === id); title = 'Comprovante de Carregamento'; }
+      else if (type === 'avulsa') { item = state.oneoffs.find(x => x.id === id); title = 'Comprovante de Pesagem Avulsa'; }
+      if (!item) return;
+
+      const pArea = document.getElementById('print-area');
+      pArea.innerHTML = `
+        <div class="p-8 max-w-2xl mx-auto border-2 border-slate-300 relative bg-white">
+          <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+            ${LOGO_SVG}
+          </div>
+          <div class="flex items-center justify-between border-b-2 border-forest pb-4 mb-4">
+            <div>${LOGO_SVG}</div>
+            <div class="text-right">
+              <h2 class="text-lg font-bold text-forest uppercase">${title}</h2>
+              <div class="text-xs font-mono font-bold">${item.romaneio}</div>
+              <div class="text-[11px] text-slate-500">${item.date}</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 text-xs mb-4">
+            <div><strong>Placa:</strong> ${item.plate}</div>
+            <div><strong>Unidade:</strong> ${(item.unit || 'Matriz').toUpperCase()}</div>
+            ${item.producer ? `<div><strong>Produtor:</strong> ${item.producer}</div>` : ''}
+            ${item.farm ? `<div><strong>Fazenda:</strong> ${item.farm}</div>` : ''}
+            ${item.contract ? `<div><strong>Contrato:</strong> ${item.contract}</div>` : ''}
+            ${item.grain ? `<div><strong>Grão / Variedade:</strong> ${item.grain} ${item.variety || ''}</div>` : ''}
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 text-xs">
+            <div class="grid grid-cols-3 gap-2 font-bold text-center">
+              <div>Peso Bruto: ${fmtKg(item.grossWeight)}</div>
+              <div>Tara: ${fmtKg(item.tareWeight)}</div>
+              <div class="text-forest">Líquido: ${fmtKg(item.classifiedNet || item.netWeight)}</div>
+            </div>
+            ${item.totalDiscount ? `<div class="text-center text-amber-800 text-[11px] mt-2 border-t pt-2">Descontos aplicados (Classificação MT): ${fmtKg(item.totalDiscount)}</div>` : ''}
+          </div>
+
+          <div class="grid grid-cols-2 gap-8 pt-12 border-t border-slate-200 text-center text-xs">
+            <div>____________________________<br>Assinatura Responsável</div>
+            <div>____________________________<br>Motorista / Conferente</div>
+          </div>
+        </div>
+      `;
+      window.print();
+    }
+
+    function printProducerReport() {
+      const f = state.reportFilter;
+      const filtered = state.receipts.filter(r => {
+        if (f.producer && r.producer !== f.producer) return false;
+        if (f.grain && r.grain !== f.grain) return false;
+        if (f.unit && r.unit !== f.unit) return false;
+        return true;
+      });
+
+      const pArea = document.getElementById('print-area');
+      pArea.innerHTML = `
+        <div class="p-8 max-w-4xl mx-auto border-2 border-slate-300 relative bg-white">
+          <div class="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+            ${LOGO_SVG}
+          </div>
+          <div class="flex items-center justify-between border-b-2 border-forest pb-4 mb-6">
+            <div>${LOGO_SVG}</div>
+            <div class="text-right">
+              <h2 class="text-lg font-bold text-forest uppercase">Relatório de Originação de Grãos</h2>
+              <div class="text-xs font-bold">${f.producer || 'Todos os Produtores'} &bull; ${f.unit ? f.unit.toUpperCase() : 'Geral'}</div>
+              <div class="text-[11px] text-slate-500">Emissão: ${new Date().toLocaleDateString('pt-BR')}</div>
+            </div>
+          </div>
+
+          <table class="w-full text-left text-xs mb-8">
+            <thead>
+              <tr class="border-b text-slate-500 uppercase text-[10px]">
+                <th class="py-2">Data</th>
+                <th>Romaneio</th>
+                <th>Produtor / Fazenda</th>
+                <th>Grão / Variedade</th>
+                <th class="text-right">Líquido Comercial</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${filtered.map(r => `
+                <tr>
+                  <td class="py-2">${r.date}</td>
+                  <td class="font-bold text-forest">${r.romaneio}</td>
+                  <td>${r.producer} (${r.farm || '—'})</td>
+                  <td>${r.grain} ${r.variety || ''}</td>
+                  <td class="text-right font-bold">${fmtKg(r.classifiedNet || r.netWeight)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="text-right border-t-2 border-forest pt-3 text-sm font-bold text-forest">
+            Total Líquido Comercial: ${fmtTons(filtered.reduce((s, r) => s + (r.classifiedNet || r.netWeight || 0), 0))}
+          </div>
+        </div>
+      `;
+      window.print();
+    }
+
+    // Inicialização da aplicação
+    window.addEventListener('DOMContentLoaded', () => {
+      render();
+    });
+  </script>
+</body>
+</html>
