@@ -1,2 +1,0 @@
-# dassolercontrolearmazem
-CONTROLE DE BALANÇA
